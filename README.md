@@ -3,9 +3,9 @@
     <p>This project provides a security scanner that performs the following tasks:</p>
     <ul>
         <li>Scan for open ports on a given IP address.</li>
-        <li>Check for public resources on a given URL.</li>
-        <li>Check for role misconfigurations on a given URL.</li>
-        <li>Check for weak passwords on a given IP address.</li>
+        <li>Check for public resources on a given URL. (work in progress ...) </li>
+        <li>Check for role misconfigurations on a given URL. (work in progress ...)</li>
+        <li>Check for weak passwords on a given IP address. (work in progress ...)</li>
     </ul>
     <h2>Setup and Installation</h2>
     <ol>
