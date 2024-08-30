@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scan Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Scan Results</h1>
+
+    <h2>Open Ports</h2>
+    <pre>{{ response['open_ports'] | tojson(indent=2) }}</pre>
+
+    <h2>Public Resources</h2>
+    <pre>{{ response['public_resources'] | tojson(indent=2) }}</pre>
+
+    <h2>Role Misconfigurations</h2>
+    <pre>{{ response['role_misconfigurations'] | tojson(indent=2) }}</pre>
+
+    <h2>Weak Passwords</h2>
+    <pre>{{ response['weak_passwords'] | tojson(indent=2) }}</pre>
+
+    <a href="{{ url_for('home') }}">Back to Home</a>
+</body>
+</html>
