@@ -1,0 +1,12 @@
+---
+applications:
+  - name: security-scanner-app  # Replace with your app name
+    random-route: true
+    memory: 512M
+    buildpacks:
+      - python_buildpack
+    env:
+      FLASK_ENV: development
+      SAP_HANA_CREDENTIALS: "<sap_hana_credentials_variable>"  # Placeholder for environment variables
+    services:
+      - <hana-service-instance-name>  # Replace with your HANA service instance name
