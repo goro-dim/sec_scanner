@@ -1,12 +1,12 @@
 ---
 applications:
-  - name: security-scanner-app  # Replace with your app name
-    random-route: true
-    memory: 512M
-    buildpacks:
+  - name: security-scanner-app  # Name of your application
+    memory: 512M               # Memory allocation
+    disk_quota: 1G             # Disk space allocation
+    instances: 1               # Number of instances to run
+    random-route: true         # Generates a random route if not specified
+    buildpacks:                # Buildpack to use for deployment
       - python_buildpack
-    env:
-      FLASK_ENV: development
-      SAP_HANA_CREDENTIALS: "<sap_hana_credentials_variable>"  # Placeholder for environment variables
-    services:
-      - <hana-service-instance-name>  # Replace with your HANA service instance name
+    command: waitress-serve --port=$PORT server:app  # Command to start the app using waitress
+    env:                       # Environment variables
+      FLASK_ENV: development   # Flask environment variable
