@@ -79,12 +79,30 @@ def parse_ports(ports):
     return port_list
 
 
+def endpoint_exists(url, endpoint):
+    """
+    Check if an endpoint exists by sending a HEAD request.
+    """
+    try:
+        response = requests.head(f"{url}{endpoint}", timeout=5)  # HEAD request for quick check
+        if response.status_code == 200:
+            return True
+        else:
+            logging.warning(f"Endpoint {endpoint} does not exist or returned status code {response.status_code}.")
+            return False
+    except Exception as e:
+        logging.error(f"Error checking endpoint {endpoint}: {e}")
+        return False
+
 def check_public_resources(target_system_url):
     """
     Check if any cloud resources are publicly accessible.
     """
+    if not endpoint_exists(target_system_url, "/public-resources"):
+        return {"error": "Endpoint /public-resources does not exist or is inaccessible."}
+
     try:
-        response = requests.get(f"{target_system_url}/public-resources", timeout=5)  # Added timeout
+        response = requests.get(f"{target_system_url}/public-resources", timeout=5)
         if response.status_code == 200:
             resources = response.json()
             public_resources = [resource for resource in resources if resource.get("is_public")]
@@ -92,17 +110,22 @@ def check_public_resources(target_system_url):
         else:
             logging.error(f"Failed to fetch public resources. Status code: {response.status_code}")
             return {"error": f"Failed to fetch public resources. Status code: {response.status_code}"}
+    except requests.exceptions.Timeout:
+        logging.error("Request timed out while checking public resources.")
+        return {"error": "Request timed out while checking public resources."}
     except Exception as e:
         logging.error(f"Error during public resources check: {e}")
         return {"error": str(e)}
-
 
 def check_role_misconfiguration(target_system_url):
     """
     Check for common role misconfigurations.
     """
+    if not endpoint_exists(target_system_url, "/roles"):
+        return {"error": "Endpoint /roles does not exist or is inaccessible."}
+
     try:
-        response = requests.get(f"{target_system_url}/roles", timeout=5)  # Added timeout
+        response = requests.get(f"{target_system_url}/roles", timeout=5)
         if response.status_code == 200:
             roles = response.json()
             misconfigurations = [role for role in roles if
@@ -112,6 +135,9 @@ def check_role_misconfiguration(target_system_url):
         else:
             logging.error(f"Failed to fetch role misconfigurations. Status code: {response.status_code}")
             return {"error": f"Failed to fetch role misconfigurations. Status code: {response.status_code}"}
+    except requests.exceptions.Timeout:
+        logging.error("Request timed out while checking role misconfigurations.")
+        return {"error": "Request timed out while checking role misconfigurations."}
     except Exception as e:
         logging.error(f"Error during role misconfiguration check: {e}")
         return {"error": str(e)}
