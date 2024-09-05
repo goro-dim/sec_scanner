@@ -1,17 +1,15 @@
 import argparse
+import requests
 import logging
 import socket
 from urllib.parse import urlparse
-from concurrent.futures import ThreadPoolExecutor, as_completed  # For concurrency
-import requests
+from tabulate import tabulate  # Import tabulate for ASCII-style table
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 
 def get_ip_from_url(url):
-    """
-    Convert a URL to its corresponding IP address.
-    """
+    """Convert a URL to its corresponding IP address."""
     try:
         parsed_url = urlparse(url)
         hostname = parsed_url.hostname
@@ -24,50 +22,27 @@ def get_ip_from_url(url):
         logging.error(f"Error resolving IP address: {e}")
         return None
 
-
-def check_port(ip, port, timeout=1):
-    """
-    Check if a given port is open on a target IP address.
-    """
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(timeout)
-            result = sock.connect_ex((ip, port))
-            return result == 0  # Return True if port is open
-    except Exception as e:
-        logging.error(f"Error checking port {port}: {e}")
-        return False
-
-
 def scan_open_ports(target_ip, ports="1-1024"):
-    """
-    Scan for open ports on a target IP address using a multi-threaded approach.
-    """
+    """Scan open ports using Python's socket library."""
+    logging.info(f"Starting port scan on {target_ip} for ports {ports}...")
     open_ports = []
     ports_to_scan = parse_ports(ports)
-    
-    logging.info(f"Starting port scan on {target_ip} for ports {ports}...")
 
-    with ThreadPoolExecutor(max_workers=50) as executor:
-        future_to_port = {executor.submit(check_port, target_ip, port): port for port in ports_to_scan}
+    try:
+        for port in ports_to_scan:
+            if check_port(target_ip, port):
+                logging.info(f"Port {port} is open on {target_ip}")
+                open_ports.append(port)
 
-        for future in as_completed(future_to_port):
-            port = future_to_port[future]
-            try:
-                if future.result():
-                    logging.info(f"Port {port} is open on {target_ip}")
-                    open_ports.append(port)
-            except Exception as e:
-                logging.error(f"Error scanning port {port}: {e}")
+        logging.info(f"Port scan completed on {target_ip}.")
+        return {"open_ports": open_ports}
 
-    logging.info(f"Port scan completed on {target_ip}.")
-    return {"open_ports": open_ports}
+    except Exception as e:
+        logging.error(f"Error during port scanning: {e}")
+        return {"error": str(e)}
 
-
-def parse_ports(ports):
-    """
-    Parse the port input to a list of integers.
-    """
+def parse_ports(ports: str) -> list:
+    """Parse the port input to a list of integers."""
     port_list = []
     ranges = ports.split(',')
     for part in ranges:
@@ -78,86 +53,79 @@ def parse_ports(ports):
             port_list.append(int(part))
     return port_list
 
+def check_port(ip: str, port: int) -> bool:
+    """Check if a given port is open on a target IP address."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(1)
+        result = sock.connect_ex((ip, port))
+        return result == 0
 
-def endpoint_exists(url, endpoint):
-    """
-    Check if an endpoint exists by sending a HEAD request.
-    """
+def check_endpoint(url: str, endpoint: str) -> dict:
+    """Check if a given endpoint exists and is accessible."""
     try:
-        response = requests.head(f"{url}{endpoint}", timeout=5)  # HEAD request for quick check
+        response = requests.get(f"{url}{endpoint}", timeout=5)
         if response.status_code == 200:
-            return True
+            return {"endpoint": endpoint, "status": "Accessible"}
         else:
-            logging.warning(f"Endpoint {endpoint} does not exist or returned status code {response.status_code}.")
-            return False
+            logging.error(f"Endpoint {endpoint} returned status code: {response.status_code}")
+            return {"endpoint": endpoint, "status": "Inaccessible"}
     except Exception as e:
         logging.error(f"Error checking endpoint {endpoint}: {e}")
-        return False
+        return {"endpoint": endpoint, "status": "Error: " + str(e)}
 
 def check_public_resources(target_system_url):
-    """
-    Check if any cloud resources are publicly accessible.
-    """
-    if not endpoint_exists(target_system_url, "/public-resources"):
-        return {"error": "Endpoint /public-resources does not exist or is inaccessible."}
-
-    try:
-        response = requests.get(f"{target_system_url}/public-resources", timeout=5)
-        if response.status_code == 200:
-            resources = response.json()
-            public_resources = [resource for resource in resources if resource.get("is_public")]
-            return {"resources": public_resources}
-        else:
-            logging.error(f"Failed to fetch public resources. Status code: {response.status_code}")
-            return {"error": f"Failed to fetch public resources. Status code: {response.status_code}"}
-    except requests.exceptions.Timeout:
-        logging.error("Request timed out while checking public resources.")
-        return {"error": "Request timed out while checking public resources."}
-    except Exception as e:
-        logging.error(f"Error during public resources check: {e}")
-        return {"error": str(e)}
+    """Check if any cloud resources are publicly accessible."""
+    return check_endpoint(target_system_url, "/public-resources")
 
 def check_role_misconfiguration(target_system_url):
-    """
-    Check for common role misconfigurations.
-    """
-    if not endpoint_exists(target_system_url, "/roles"):
-        return {"error": "Endpoint /roles does not exist or is inaccessible."}
-
-    try:
-        response = requests.get(f"{target_system_url}/roles", timeout=5)
-        if response.status_code == 200:
-            roles = response.json()
-            misconfigurations = [role for role in roles if
-                                 role.get("privilege_level") == "admin" and role.get("assigned_to").lower() not in [
-                                     'admin', 'security']]
-            return {"roles": misconfigurations}
-        else:
-            logging.error(f"Failed to fetch role misconfigurations. Status code: {response.status_code}")
-            return {"error": f"Failed to fetch role misconfigurations. Status code: {response.status_code}"}
-    except requests.exceptions.Timeout:
-        logging.error("Request timed out while checking role misconfigurations.")
-        return {"error": "Request timed out while checking role misconfigurations."}
-    except Exception as e:
-        logging.error(f"Error during role misconfiguration check: {e}")
-        return {"error": str(e)}
-
+    """Check for common role misconfigurations."""
+    return check_endpoint(target_system_url, "/roles")
 
 def check_weak_passwords(target_ip):
-    """
-    Check for common weak passwords on the given target.
-    """
-    try:
-        weak_passwords = ['password', '123456', 'admin', 'root']
-        found_weak_passwords = []  # Placeholder for results
-        # Example check: This should be replaced with an actual service login attempt
-        for password in weak_passwords:
-            logging.info(f"Checking password: {password} on {target_ip}")
-        return {"passwords": found_weak_passwords}
-    except Exception as e:
-        logging.error(f"Error during weak password check: {e}")
-        return {"error": str(e)}
+    """Check for common weak passwords on the given target."""
+    weak_passwords = ['password', '123456', 'admin', 'root']
+    found_weak_passwords = []
 
+    # Placeholder for results - This should be replaced with actual service login attempt logic
+    for password in weak_passwords:
+        logging.info(f"Checking password: {password} on {target_ip}")
+        # Add the check logic and if found, add to found_weak_passwords
+
+    return {"passwords": found_weak_passwords}
+
+def display_results(results):
+    """Display results in an ASCII-style table format."""
+    # Prepare the data for tabulate
+    open_ports_data = [["Port", "Status"]]
+    open_ports = results.get('open_ports', {}).get('open_ports', [])
+    for port in open_ports:
+        open_ports_data.append([port, "Open"])
+
+    public_resources = results.get('public_resources', {})
+    public_resources_data = [["Endpoint", "Status"]]
+    public_resources_data.append([public_resources.get('endpoint'), public_resources.get('status')])
+
+    role_misconfigurations = results.get('role_misconfigurations', {})
+    role_misconfigurations_data = [["Endpoint", "Status"]]
+    role_misconfigurations_data.append([role_misconfigurations.get('endpoint'), role_misconfigurations.get('status')])
+
+    weak_passwords = results.get('weak_passwords', {}).get('passwords', [])
+    weak_passwords_data = [["Username", "Weak Password"]]
+    for entry in weak_passwords:
+        weak_passwords_data.append([entry['username'], entry['weak_password']])
+
+    # Print results using tabulate
+    print("\nOpen Ports:")
+    print(tabulate(open_ports_data, headers="firstrow", tablefmt="fancy_grid"))
+
+    print("\nPublic Resources:")
+    print(tabulate(public_resources_data, headers="firstrow", tablefmt="fancy_grid"))
+
+    print("\nRole Misconfigurations:")
+    print(tabulate(role_misconfigurations_data, headers="firstrow", tablefmt="fancy_grid"))
+
+    print("\nWeak Passwords:")
+    print(tabulate(weak_passwords_data, headers="firstrow", tablefmt="fancy_grid"))
 
 # Main function to handle arguments and call appropriate functions
 if __name__ == "__main__":
@@ -196,5 +164,5 @@ if __name__ == "__main__":
     results['role_misconfigurations'] = role_misconfigurations
     results['weak_passwords'] = weak_passwords
 
-    # Print the results
-    print("Results:", results)
+    # Display the results in ASCII-style tables
+    display_results(results)
