@@ -2,24 +2,106 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scan Results</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .error {
+            color: red;
+        }
+    </style>
 </head>
 <body>
     <h1>Scan Results</h1>
+    <a href="/">Back to Home</a>
 
     <h2>Open Ports</h2>
-    <pre>{{ response['open_ports'] | tojson(indent=2) }}</pre>
+    {% if response.open_ports.error %}
+        <p class="error">{{ response.open_ports.error }}</p>
+    {% else %}
+        <table>
+            <tr>
+                <th>Port</th>
+                <th>Status</th>
+            </tr>
+            {% for port in response.open_ports.open_ports %}
+            <tr>
+                <td>{{ port }}</td>
+                <td>Open</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
 
     <h2>Public Resources</h2>
-    <pre>{{ response['public_resources'] | tojson(indent=2) }}</pre>
+    {% if response.public_resources.error %}
+        <p class="error">{{ response.public_resources.error }}</p>
+    {% else %}
+        <table>
+            <tr>
+                <th>URL</th>
+                <th>Status Code</th>
+            </tr>
+            {% for resource in response.public_resources.resources %}
+            <tr>
+                <td>{{ resource.url }}</td>
+                <td>{{ resource.status_code }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
 
     <h2>Role Misconfigurations</h2>
-    <pre>{{ response['role_misconfigurations'] | tojson(indent=2) }}</pre>
+    {% if response.role_misconfigurations.error %}
+        <p class="error">{{ response.role_misconfigurations.error }}</p>
+    {% else %}
+        <table>
+            <tr>
+                <th>Role</th>
+                <th>Misconfiguration</th>
+            </tr>
+            {% for role in response.role_misconfigurations.roles %}
+            <tr>
+                <td>{{ role.role }}</td>
+                <td>{{ 'Yes' if role.misconfiguration else 'No' }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
 
     <h2>Weak Passwords</h2>
-    <pre>{{ response['weak_passwords'] | tojson(indent=2) }}</pre>
-
-    <a href="{{ url_for('home') }}">Back to Home</a>
+    {% if response.weak_passwords.error %}
+        <p class="error">{{ response.weak_passwords.error }}</p>
+    {% else %}
+        <table>
+            <tr>
+                <th>Username</th>
+                <th>Weak Password</th>
+            </tr>
+            {% for password in response.weak_passwords.passwords %}
+            <tr>
+                <td>{{ password.username }}</td>
+                <td>{{ password.weak_password }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
 </body>
 </html>
