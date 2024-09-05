@@ -103,11 +103,13 @@ def display_results(results):
 
     public_resources = results.get('public_resources', {})
     public_resources_data = [["Endpoint", "Status"]]
-    public_resources_data.append([public_resources.get('endpoint'), public_resources.get('status')])
+    if public_resources:
+        public_resources_data.append([public_resources.get('endpoint', 'N/A'), public_resources.get('status', 'N/A')])
 
     role_misconfigurations = results.get('role_misconfigurations', {})
     role_misconfigurations_data = [["Endpoint", "Status"]]
-    role_misconfigurations_data.append([role_misconfigurations.get('endpoint'), role_misconfigurations.get('status')])
+    if role_misconfigurations:
+        role_misconfigurations_data.append([role_misconfigurations.get('endpoint', 'N/A'), role_misconfigurations.get('status', 'N/A')])
 
     weak_passwords = results.get('weak_passwords', {}).get('passwords', [])
     weak_passwords_data = [["Username", "Weak Password"]]
@@ -131,8 +133,7 @@ def display_results(results):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run security scans on a given target.")
     parser.add_argument('--ip', type=str, help="Target IP address for port scanning.")
-    parser.add_argument('--url', type=str, required=True,
-                        help="Target URL for checking public resources, role misconfigurations, and weak passwords.")
+    parser.add_argument('--url', type=str, help="Target URL for checking public resources, role misconfigurations, and weak passwords.")
     parser.add_argument('--ports', type=str, default="1-1024", help="Port range to scan (default: 1-1024).")
 
     args = parser.parse_args()
@@ -140,7 +141,7 @@ if __name__ == "__main__":
     results = {}
 
     # Extract IP from URL if IP is not provided
-    if not args.ip:
+    if not args.ip and args.url:
         args.ip = get_ip_from_url(args.url)
         if not args.ip:
             logging.error("Failed to resolve IP address from URL.")
@@ -155,14 +156,19 @@ if __name__ == "__main__":
     else:
         results['open_ports'] = {'error': 'No valid IP address for port scan.'}
 
-    # Perform URL-based checks
-    public_resources = check_public_resources(args.url)
-    role_misconfigurations = check_role_misconfiguration(args.url)
-    weak_passwords = check_weak_passwords(args.url)  # Assuming this function can work with URLs
+    # Perform URL-based checks if URL is provided
+    if args.url:
+        public_resources = check_public_resources(args.url)
+        role_misconfigurations = check_role_misconfiguration(args.url)
+        weak_passwords = check_weak_passwords(args.url)  # Assuming this function can work with URLs
 
-    results['public_resources'] = public_resources
-    results['role_misconfigurations'] = role_misconfigurations
-    results['weak_passwords'] = weak_passwords
+        results['public_resources'] = public_resources
+        results['role_misconfigurations'] = role_misconfigurations
+        results['weak_passwords'] = weak_passwords
+    else:
+        results['public_resources'] = {'error': 'No URL provided for public resources check.'}
+        results['role_misconfigurations'] = {'error': 'No URL provided for role misconfiguration check.'}
+        results['weak_passwords'] = {'error': 'No URL provided for weak password check.'}
 
     # Display the results in ASCII-style tables
     display_results(results)
