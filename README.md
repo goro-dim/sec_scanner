@@ -62,7 +62,7 @@ source venv/bin/activate  # On Windows use `venv\Scripts\activate`</code></pre>
 <p>To start the web-based GUI and use the scanner:</p>
 <ol>
     <li>Run the Flask Server:
-        <pre><code>python run_local.py</code></pre>
+        <pre><code>python server.py</code></pre>
     </li>
     <li>Access the GUI:
         <p>Open your web browser and navigate to <a href="http://127.0.0.1:5000/">http://127.0.0.1:5000/</a>.</p>
