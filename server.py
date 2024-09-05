@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, render_template
-import nmap
 import requests
 import concurrent.futures
 import logging
@@ -7,11 +6,12 @@ import csv
 from io import StringIO
 import re
 from urllib.parse import urlparse
-import socket  # To resolve IP address from URL
+import socket  # To resolve IP address from URL and scan ports
 from werkzeug.exceptions import BadRequest
+import waitress
 
 # Initialize the Flask application
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 logging.basicConfig(level=logging.DEBUG)
 
 # Regular expressions for input validation
@@ -111,36 +111,43 @@ def validate_ports(ports: str) -> bool:
 
 
 def scan_open_ports(target_ip: str, ports: str = "1-500") -> dict:
-    nm = nmap.PortScanner()
-    try:
-        # Using a ThreadPoolExecutor to handle timeouts
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submitting the Nmap scan task
-            future = executor.submit(nm.scan, hosts=target_ip, ports=ports, arguments='-T4', timeout=60)
-            # Waiting for the result with a timeout of 60 seconds
-            future.result(timeout=60)
+    """Scan open ports using Python's socket library."""
+    open_ports = []
+    ports_to_scan = parse_ports(ports)
 
-        # Getting scan results in CSV format
-        scan_result = nm.csv()
-        if scan_result:
-            # Parse CSV to a structured format
-            return {"open_ports": parse_nmap_csv(scan_result)}
-        else:
-            return {"error": "No scan results available"}
-    except concurrent.futures.TimeoutError:
-        return {"error": "Scan timed out"}
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+            future_to_port = {executor.submit(check_port, target_ip, port): port for port in ports_to_scan}
+            for future in concurrent.futures.as_completed(future_to_port):
+                port = future_to_port[future]
+                if future.result():
+                    open_ports.append(port)
+
+        return {"open_ports": open_ports}
     except Exception as e:
         logging.error(f"Scan failed: {e}")
         return {"error": str(e)}
 
 
-def parse_nmap_csv(csv_data: str) -> list:
-    """Parse Nmap CSV output to a list of dictionaries for better readability."""
-    result = []
-    csv_reader = csv.DictReader(StringIO(csv_data))
-    for row in csv_reader:
-        result.append(row)
-    return result
+def parse_ports(ports: str) -> list:
+    """Parse the port input to a list of integers."""
+    port_list = []
+    ranges = ports.split(',')
+    for part in ranges:
+        if '-' in part:
+            start, end = part.split('-')
+            port_list.extend(range(int(start), int(end) + 1))
+        else:
+            port_list.append(int(part))
+    return port_list
+
+
+def check_port(ip: str, port: int) -> bool:
+    """Check if a given port is open on a target IP address."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(1)
+        result = sock.connect_ex((ip, port))
+        return result == 0
 
 
 def check_public_resources(url: str) -> dict:
@@ -167,5 +174,4 @@ def check_weak_passwords(ip: str) -> dict:
 
 
 if __name__ == '__main__':
-    # Running the Flask app in debug mode
-    app.run(debug=True)
+    app.run()
