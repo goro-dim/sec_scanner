@@ -1,18 +1,17 @@
 import argparse
-import nmap
-import requests
 import logging
 import socket
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed  # For concurrency
+import requests
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 
-
 def get_ip_from_url(url):
     """
     Convert a URL to its corresponding IP address.
-    """ 
+    """
     try:
         parsed_url = urlparse(url)
         hostname = parsed_url.hostname
@@ -26,28 +25,58 @@ def get_ip_from_url(url):
         return None
 
 
-def scan_open_ports(target_ip, ports="1-1024"):
+def check_port(ip, port, timeout=1):
+    """
+    Check if a given port is open on a target IP address.
+    """
     try:
-        logging.info(f"Starting port scan on {target_ip} for ports {ports}...")
-        nm = nmap.PortScanner()
-        scan_result = nm.scan(target_ip, ports, arguments='-T4 -v')  # Added verbosity
-        logging.debug(f"Scan result: {scan_result}")
-
-        if target_ip not in nm.all_hosts():
-            logging.error(f"No scan results for {target_ip}. The host might be down or not responding.")
-            return {"error": f"No scan results for {target_ip}. The host might be down or not responding."}
-
-        open_ports = {
-            port: nm[target_ip]['tcp'][port]['state']
-            for port in nm[target_ip]['tcp']
-            if nm[target_ip]['tcp'][port]['state'] == 'open'
-        }
-        logging.info(f"Port scan completed on {target_ip}.")
-        return {"open_ports": open_ports}
-
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(timeout)
+            result = sock.connect_ex((ip, port))
+            return result == 0  # Return True if port is open
     except Exception as e:
-        logging.error(f"Error during port scanning: {e}")
-        return {"error": str(e)}
+        logging.error(f"Error checking port {port}: {e}")
+        return False
+
+
+def scan_open_ports(target_ip, ports="1-1024"):
+    """
+    Scan for open ports on a target IP address using a multi-threaded approach.
+    """
+    open_ports = []
+    ports_to_scan = parse_ports(ports)
+    
+    logging.info(f"Starting port scan on {target_ip} for ports {ports}...")
+
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        future_to_port = {executor.submit(check_port, target_ip, port): port for port in ports_to_scan}
+
+        for future in as_completed(future_to_port):
+            port = future_to_port[future]
+            try:
+                if future.result():
+                    logging.info(f"Port {port} is open on {target_ip}")
+                    open_ports.append(port)
+            except Exception as e:
+                logging.error(f"Error scanning port {port}: {e}")
+
+    logging.info(f"Port scan completed on {target_ip}.")
+    return {"open_ports": open_ports}
+
+
+def parse_ports(ports):
+    """
+    Parse the port input to a list of integers.
+    """
+    port_list = []
+    ranges = ports.split(',')
+    for part in ranges:
+        if '-' in part:
+            start, end = part.split('-')
+            port_list.extend(range(int(start), int(end) + 1))
+        else:
+            port_list.append(int(part))
+    return port_list
 
 
 def check_public_resources(target_system_url):
@@ -55,8 +84,7 @@ def check_public_resources(target_system_url):
     Check if any cloud resources are publicly accessible.
     """
     try:
-        # Adjust URL to a valid endpoint if necessary
-        response = requests.get(f"{target_system_url}/public-resources")
+        response = requests.get(f"{target_system_url}/public-resources", timeout=5)  # Added timeout
         if response.status_code == 200:
             resources = response.json()
             public_resources = [resource for resource in resources if resource.get("is_public")]
@@ -74,8 +102,7 @@ def check_role_misconfiguration(target_system_url):
     Check for common role misconfigurations.
     """
     try:
-        # Adjust URL to a valid endpoint if necessary
-        response = requests.get(f"{target_system_url}/roles")
+        response = requests.get(f"{target_system_url}/roles", timeout=5)  # Added timeout
         if response.status_code == 200:
             roles = response.json()
             misconfigurations = [role for role in roles if
