@@ -2,24 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Scan Page</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        input[type="text"] {
+            width: 300px;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+        }
+    </style>
 </head>
 <body>
-    <h1>Perform a New Scan</h1>
+    <h1>Port Scanner</h1>
+    <a href="/">Back to Home</a>
 
+    <h2>Enter Scan Details</h2>
     {% if error_message %}
-        <p style="color: red;">{{ error_message }}</p>
+        <p class="error">{{ error_message }}</p>
     {% endif %}
+    <form action="/scan" method="post">
+        <label for="ip">IP Address (optional):</label>
+        <input type="text" id="ip" name="ip" value="{{ request.form.get('ip', '') }}">
 
-    <form method="POST" action="{{ url_for('scan') }}">
-        <label for="ip">IP Address:</label>
-        <input type="text" name="ip" id="ip"><br><br>
-        <label for="url">URL:</label>
-        <input type="text" name="url" id="url"><br><br>
-        <label for="ports">Ports:</label>
-        <input type="text" name="ports" id="ports" value="1-500"><br><br>
-        <input type="submit" value="Scan">
+        <label for="url">URL (optional):</label>
+        <input type="text" id="url" name="url" value="{{ request.form.get('url', '') }}">
+
+        <label for="ports">Ports (default: 1-500):</label>
+        <input type="text" id="ports" name="ports" value="{{ request.form.get('ports', '1-500') }}">
+
+        <button type="submit">Scan</button>
     </form>
 </body>
 </html>
