@@ -94,19 +94,6 @@ source venv/bin/activate  # On Windows use `venv\Scripts\activate`</code></pre>
 <h2>Input Validation and Security</h2>
 <p>The application includes basic input validation to ensure proper format for IP addresses, URLs, and port ranges. Be sure to enter valid inputs, lest you summon an error!</p>
 
-<h2>Contributing</h2>
-<p>Contributions are welcome! To join the guild, please follow these steps:</p>
-<ol>
-    <li>Fork the repository.</li>
-    <li>Create a new branch: <code>git checkout -b feature/your-feature</code>.</li>
-    <li>Make your changes and commit them: <code>git commit -m 'Add new feature'</code>.</li>
-    <li>Push to the branch: <code>git push origin feature/your-feature</code>.</li>
-    <li>Submit a pull request.</li>
-</ol>
-
-<h2>Contact</h2>
-<p>If you have any questions or suggestions, feel free to open an issue or contact me directly (check my profile for the enchanted details 🧙‍♂️).</p>
-
 <h2>Acknowledgements</h2>
 <ul>
     <li>Flask - The web framework used.</li>
@@ -114,7 +101,7 @@ source venv/bin/activate  # On Windows use `venv\Scripts\activate`</code></pre>
 </ul>
 
 <h2>Disclaimer</h2>
-<p><em>This tool is intended for educational purposes only. Use it at your own risk, and always ensure you have proper authorization before scanning any systems. Remember, with great power comes great responsibility! 🕵️‍♂️</em></p>
+<p><em>This tool is intended for educational purposes only. Use it at your own risk, and always ensure you have proper authorization before scanning any systems. 🕵️‍♂️</em></p>
 
 </body>
 </html>
